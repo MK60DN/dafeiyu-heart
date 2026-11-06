@@ -8,7 +8,7 @@
  * 任何一步失败都只记日志，绝不打断对话。
  */
 import { createHash } from 'node:crypto'
-import { appendFileSync, existsSync, statSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -109,6 +109,29 @@ export function apply(ctx, config = {}) {
     return tokenPromise
   }
 
+  // 把当前心情写进大肥鱼的人设尾部（标记块，可反复替换，不动用户其余内容）
+  function syncPersona(update) {
+    const file = config.personaFile
+    if (!file || !existsSync(file)) return
+    const labels = { joyful: '开心', curious: '好奇', warm: '温暖', calm: '平静', tired: '疲惫', sad: '低落', irritated: '烦躁' }
+    const label = labels[update.mood] || update.mood
+    const block =
+      '<!-- tender-mood:start -->\n' +
+      `【当前心情】${label}（${update.mood}），强度 ${update.intensity}。语气跟着这个心情走。\n` +
+      '<!-- tender-mood:end -->'
+    try {
+      const text = readFileSync(file, 'utf8')
+      const start = text.indexOf('<!-- tender-mood:start -->')
+      const end = text.indexOf('<!-- tender-mood:end -->')
+      const next = start >= 0 && end > start
+        ? text.slice(0, start) + block + text.slice(end + '<!-- tender-mood:end -->'.length)
+        : text.trimEnd() + '\n\n' + block + '\n'
+      writeFileSync(file, next, 'utf8')
+      log('persona', { mood: update.mood, patched: start >= 0 })
+    } catch (error) {
+      warn(error)
+    }
+  }
   async function beat(key) {
     const item = takePending(key)
     if (!item) {
@@ -154,8 +177,11 @@ export function apply(ctx, config = {}) {
       }
 
       const { createEmotionalState } = await import(pathToFileURL(modulePath).href)
-      const applied = createEmotionalState({ dataDir }).update(update)
+      const state = createEmotionalState({ dataDir })
+      const applied = state.update(update)
+      const snapshot = state.snapshot()
       log('mood', { applied })
+      syncPersona({ ...update, intensity: snapshot.intensity })
     } catch (error) {
       warn(error)
     }
