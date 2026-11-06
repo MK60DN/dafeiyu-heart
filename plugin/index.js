@@ -110,9 +110,11 @@ export function apply(ctx, config = {}) {
   }
 
   async function beat(key) {
-    const item = pending.get(key)
-    if (!item) return
-    pending.delete(key)
+    const item = takePending(key)
+    if (!item) {
+      log('no-pending', { key, size: pending.size })
+      return
+    }
 
     const text = String(item.text || '').trim()
     if (!text) return
@@ -159,9 +161,29 @@ export function apply(ctx, config = {}) {
     }
   }
 
+  // 两个事件里的 agent 标识不一定一致，按 key 取不到时退回最近一条（单用户场景足够）
+  function takePending(key) {
+    if (pending.has(key)) {
+      const item = pending.get(key)
+      pending.delete(key)
+      return item
+    }
+    let newestKey = null
+    let newest = null
+    for (const [candidate, item] of pending) {
+      if (!newest || item.at > newest.at) {
+        newest = item
+        newestKey = candidate
+      }
+    }
+    if (newestKey) pending.delete(newestKey)
+    return newest
+  }
+
   const offClaim = ctx.on('agent/inbox/claimed', ({ agent, message }) => {
     const key = agent?.id ?? agent?.sessionId ?? 'default'
-    pending.set(key, { text: textOf(message) })
+    pending.set(key, { text: textOf(message), at: Date.now() })
+    log('claim', { key, chars: textOf(message).length })
   })
 
   const offStop = ctx.on('agent/turn-stopping', ({ agent }) => {
