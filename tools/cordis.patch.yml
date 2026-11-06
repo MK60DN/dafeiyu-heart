@@ -1,0 +1,8 @@
+- insert:
+    - id: tender-tools
+      name: '@local/tender-tools'
+      config:
+        enabled: true
+        baseUrl: http://127.0.0.1:8080
+        learnerId: dafeiyu
+        actorId: dafeiyu

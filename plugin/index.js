@@ -13,7 +13,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const MAX_SUMMARY = 60
-const LOG_FILE = 'D:/Tender/dafeiyu-heart/plugin.log'
+const LOG_FILE = 'D:/Tender/Tender-GitHub-Release/integrations/dafeiyu-heart/plugin.log'
 
 function log(stage, detail = {}) {
   try {
@@ -108,17 +108,34 @@ export function apply(ctx, config = {}) {
     }
     return tokenPromise
   }
-
-  // 把当前心情写进大肥鱼的人设尾部（标记块，可反复替换，不动用户其余内容）
-  function syncPersona(update) {
+  // 把 Tender 的状态卡写进人设：心情 + 为什么 + 该怎么帮 + 反思问题
+  function syncPersona(card, update) {
     const file = config.personaFile
     if (!file || !existsSync(file)) return
     const labels = { joyful: '开心', curious: '好奇', warm: '温暖', calm: '平静', tired: '疲惫', sad: '低落', irritated: '烦躁' }
     const label = labels[update.mood] || update.mood
-    const block =
-      '<!-- tender-mood:start -->\n' +
-      `【当前心情】${label}（${update.mood}），强度 ${update.intensity}。语气跟着这个心情走。\n` +
-      '<!-- tender-mood:end -->'
+    const state = card?.state || {}
+    const hypothesis = Array.isArray(state.hypotheses) && state.hypotheses.length
+      ? state.hypotheses[0]
+      : null
+    const support = hypothesis?.support_hint ? String(hypothesis.support_hint) : ''
+    const reflection = state.reflection_prompt ? String(state.reflection_prompt) : ''
+    const summary = state.summary ? String(state.summary) : ''
+
+    const lines = [
+      '<!-- tender-mood:start -->',
+      `【当前心情】${label}（${update.mood}），强度 ${update.intensity}。语气跟着这个心情走。`,
+    ]
+    if (summary) lines.push(`【Tender 的判断】${summary}`)
+    if (support) lines.push(`【可以怎么帮她】${support}`)
+    if (reflection) lines.push(`【可以问的一句】${reflection}`)
+    lines.push(
+      '【共情方式】先承认她的感受，再给一个最小的下一步；不评判、不追加任务、不贴标签。',
+      '【边界】这是建模出来的状态假设，别说成诊断，也别说「我测出你有问题」。',
+      '<!-- tender-mood:end -->',
+    )
+    const block = lines.join('\n')
+
     try {
       const text = readFileSync(file, 'utf8')
       const start = text.indexOf('<!-- tender-mood:start -->')
@@ -127,11 +144,12 @@ export function apply(ctx, config = {}) {
         ? text.slice(0, start) + block + text.slice(end + '<!-- tender-mood:end -->'.length)
         : text.trimEnd() + '\n\n' + block + '\n'
       writeFileSync(file, next, 'utf8')
-      log('persona', { mood: update.mood, patched: start >= 0 })
+      log('persona', { mood: update.mood, hypothesis: hypothesis?.id || null, hasSupport: Boolean(support), patched: start >= 0 })
     } catch (error) {
       warn(error)
     }
   }
+
   async function beat(key) {
     const item = takePending(key)
     if (!item) {
@@ -168,11 +186,17 @@ export function apply(ctx, config = {}) {
         mood: update?.mood ?? null,
         memory: card?.memory ?? null,
       })
-      if (!update) return
+      // 情绪可能算成「中性或混合」，共情信息照样要写；情绪只影响语气，不影响判断与建议
+      if (!update) {
+        syncPersona(card, null)
+        log('persona', { mood: null, reason: 'neutral-emotion' })
+        return
+      }
 
       const modulePath = emotionalStatePath(config)
       if (!modulePath || !existsSync(modulePath)) {
         log('skip', { reason: 'emotional-state module missing', modulePath })
+        syncPersona(card, update)
         return
       }
 
@@ -181,7 +205,7 @@ export function apply(ctx, config = {}) {
       const applied = state.update(update)
       const snapshot = state.snapshot()
       log('mood', { applied })
-      syncPersona({ ...update, intensity: snapshot.intensity })
+      syncPersona(card, { ...update, intensity: snapshot.intensity })
     } catch (error) {
       warn(error)
     }
