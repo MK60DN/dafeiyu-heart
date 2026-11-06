@@ -1,0 +1,23 @@
+{
+  "name": "@local/dafeiyu-heart",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sends each finished turn to Tender as one heartbeat and writes the resulting mood back into 大肥鱼.",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

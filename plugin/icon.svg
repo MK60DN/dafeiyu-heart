@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Fish with a heart">
+  <rect width="64" height="64" rx="14" fill="#0d211b"/>
+  <path d="M10 34c9-11 24-13 33-6l9-5-3 10 3 9-9-4c-8 8-23 6-33-4z" fill="#73ddb5"/>
+  <circle cx="24" cy="31" r="2.4" fill="#08150f"/>
+  <path d="M38 22c2.6-3 7-2.6 9 .4 2-3 6.4-3.4 9-.4 2.6 3 .6 7-2.4 9.4L45 39l-8.6-7.6c-3-2.4-5-6.4-2.4-9.4z" fill="#e3ba69" opacity=".92"/>
+</svg>

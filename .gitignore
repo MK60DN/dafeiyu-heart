@@ -1,0 +1,4 @@
+plugin.log
+tmp-state/
+node_modules/
+*.tmp
