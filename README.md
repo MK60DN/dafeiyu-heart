@@ -4,7 +4,7 @@
 
 **最新更新 / Latest update · 2026-11-06**
 
-首个可用版本：每轮对话结束自动打一次 Tender 心跳，把得到的心智状态映射成大肥鱼自己的情绪并写回;
+首个可用版本：每轮对话结束自动打一次 Tender 心跳，把得到的心智状态映射成大肥鱼自己的情绪并写回；新增桌面桌宠，实时显示当前心情;
 附带一个手动 bridge 和一个 Rust 记忆边车说明。本地已实测跑通。
 
 ## 这是什么
@@ -25,6 +25,19 @@ docs/ARCHITECTURE.md    链路、数据契约、降级规则
 ```
 
 配套但不在本仓库：`daoql-edu-serve`（Rust 记忆边车）与 `Tender-Product`（`/heart/beat` 端点）。
+
+## 桌宠
+
+![桌宠](docs/pet-preview.png)
+
+一个 always-on-top 的小窗，直接读鱼的心情文件，每 2 秒刷新：颜色随 mood 变，右下角显示强度。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\desktop-pet.ps1
+```
+
+右键：打开心情文件 / 退出；按住拖动可换位置。`DAFEIYU_STATE_FILE` 可指定别的心情文件路径。
+脚本必须**带 UTF-8 BOM**，否则 PowerShell 5.1 会把中文当 ANSI 读坏（仓库里已经是 BOM）。
 
 ## 装
 
