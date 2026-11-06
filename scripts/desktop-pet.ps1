@@ -50,9 +50,12 @@ $form.StartPosition = 'Manual'
 $form.TopMost = $true
 $form.Size = New-Object System.Drawing.Size(300, 150)
 $screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-$form.Location = New-Object System.Drawing.Point(($screen.Right - 320), ($screen.Bottom - 180))
+$form.Location = New-Object System.Drawing.Point(20, ($screen.Bottom - 200))
 $form.BackColor = [System.Drawing.ColorTranslator]::FromHtml('#0d211b')
 $form.ShowInTaskbar = $false
+# WinForms 双缓冲：避免每 2 秒 Invalidate 时闪一块底色
+$dbProp = [System.Windows.Forms.Form].GetProperty('DoubleBuffered', [System.Reflection.BindingFlags]'Instance,NonPublic')
+if ($dbProp) { $dbProp.SetValue($form, $true) }
 Write-PetLog ("screen={0}x{1} at {2},{3}  form={4},{5}" -f $screen.Width, $screen.Height, $screen.Left, $screen.Top, $form.Location.X, $form.Location.Y)
 
 $title = New-Object System.Windows.Forms.Label
@@ -64,7 +67,7 @@ $title.Location = New-Object System.Drawing.Point(14, 10)
 $form.Controls.Add($title)
 
 $moodLabel = New-Object System.Windows.Forms.Label
-$moodLabel.Text = '连接中'
+$moodLabel.Text = $script:state.label
 $moodLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml('#eef8f3')
 $moodLabel.Font = New-Object System.Drawing.Font('Microsoft YaHei', 16, [System.Drawing.FontStyle]::Bold)
 $moodLabel.AutoSize = $true
@@ -72,7 +75,7 @@ $moodLabel.Location = New-Object System.Drawing.Point(120, 42)
 $form.Controls.Add($moodLabel)
 
 $detail = New-Object System.Windows.Forms.Label
-$detail.Text = ''
+$detail.Text = if ($script:state.mood -eq 'offline') { '等待 Tender' } else { "mood: $($script:state.mood)  强度: $($script:state.intensity)" }
 $detail.ForeColor = [System.Drawing.ColorTranslator]::FromHtml('#7f9a8f')
 $detail.Font = New-Object System.Drawing.Font('Microsoft YaHei', 8)
 $detail.AutoSize = $true
@@ -80,6 +83,7 @@ $detail.Location = New-Object System.Drawing.Point(120, 84)
 $form.Controls.Add($detail)
 
 $script:state = Read-Mood
+$script:stateKey = ""
 
 $draw = {
   param($sender, $e)
@@ -113,7 +117,11 @@ $form.Add_Paint($draw)
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 2000
 $timer.Add_Tick({
-  $script:state = Read-Mood
+  $next = Read-Mood
+  $key = "$($next.mood)|$($next.intensity)|$($next.label)"
+  if ($key -eq $script:stateKey) { return }   # 状态没变就不重绘，避免无谓闪烁
+  $script:stateKey = $key
+  $script:state = $next
   $moodLabel.Text = $script:state.label
   $detail.Text = if ($script:state.mood -eq 'offline') { '启动 Tender 与插件后自动连接' }
                  else { "mood: $($script:state.mood)  强度: $($script:state.intensity)" }
